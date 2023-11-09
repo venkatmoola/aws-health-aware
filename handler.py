@@ -12,11 +12,10 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen, URLError, HTTPError
 from botocore.config import Config
 from botocore.exceptions import ClientError
-from boto3.dynamodb.conditions import Key, Attr
 from messagegenerator import get_message_for_slack, get_org_message_for_slack, get_message_for_chime, \
     get_org_message_for_chime, \
     get_message_for_teams, get_org_message_for_teams, get_message_for_email, get_org_message_for_email, \
-    get_detail_for_eventbridge
+    get_detail_for_eventbridge, get_message_for_sns, get_org_message_for_sns
 
 print("boto3 version: ",boto3.__version__)
 
@@ -77,7 +76,7 @@ def send_alert(event_details, affected_accounts, affected_entities, event_type):
     if "None" not in SNS_TOPIC_NAME:
         try:
             print("Sending the alert to SNS topic")
-            send_email(event_details, event_type, affected_accounts, resources)
+            send_sns(event_details, event_type, affected_accounts, resources)
         except HTTPError as e:
             print("Got an error while sending message to SNS topic: ", e.code, e.reason)
         except URLError as e:
@@ -160,7 +159,7 @@ def send_org_alert(event_details, affected_org_accounts, affected_org_entities, 
     if "None" not in sns_topic_name:
         try:
             print("Sending the org alert to SNS topic")
-            send_email(event_details, event_type, affected_accounts, resources)
+            send_org_sns(event_details, event_type, affected_org_accounts, resources)
         except HTTPError as e:
             print("Got an error while sending org message to SNS topic: ", e.code, e.reason)
         except URLError as e:
@@ -333,7 +332,7 @@ def send_org_sns(event_details, eventType, affected_org_accounts, affected_org_e
     #AWS_REGION = "us-east-1"
     AWS_REGION = os.environ['AWS_REGION']
     SNS_SUBJECT = os.environ['SNS_SUBJECT']
-    BODY_HTML = get_org_message_for_email(event_details, eventType, affected_org_accounts, affected_org_entities)
+    BODY_HTML = get_org_message_for_sns(event_details, eventType, affected_org_accounts, affected_org_entities)
     client = boto3.client('ses', region_name=AWS_REGION)
     sns_client = boto3.client('sns', region_name=AWS_REGION)
     response = sns_client.publish(
