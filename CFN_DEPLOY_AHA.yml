@@ -58,6 +58,10 @@ Metadata:
         default: Microsoft Teams Webhook URL
       AmazonChimeWebhookURL:
         default: Amazon Chime Webhook URL
+      SNSTopicARN:
+        default: SNS Topic ARN
+      SNSSubject:
+        default: Subject of SNS Message
       FromEmail:
         default: Email From
       ToEmail:
