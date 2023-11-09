@@ -48,12 +48,19 @@ def get_account_name(account_id):
     return account_name
 
 def send_alert(event_details, affected_accounts, affected_entities, event_type):
-    slack_url = get_secrets()["slack"]
-    teams_url = get_secrets()["teams"]
-    chime_url = get_secrets()["chime"]
+    #slack_url = get_secrets()["slack"]
+    #teams_url = get_secrets()["teams"]
+    #chime_url = get_secrets()["chime"]
+    #SENDER = os.environ['FROM_EMAIL']
+    #RECIPIENT = os.environ['TO_EMAIL']
+    #event_bus_name = get_secrets()["eventbusname"]
+    slack_url = os.environ['SLACK_URL']
+    teams_url = os.environ['TEAMS_URL']
+    chime_url = os.environ['CHIME_URL']
+    event_bus_name = os.environ['EVENT_BUS_NAME']
+    SNS_TOPIC_NAME = os.environ['SNS_TOPIC_ARN']
     SENDER = os.environ['FROM_EMAIL']
     RECIPIENT = os.environ['TO_EMAIL']
-    event_bus_name = get_secrets()["eventbusname"]
 
     #get the list of resources from the array of affected entities
     resources = get_resources_from_entities(affected_entities)
@@ -64,6 +71,15 @@ def send_alert(event_details, affected_accounts, affected_entities, event_type):
             send_to_eventbridge(get_detail_for_eventbridge(event_details, affected_entities), event_type, resources, event_bus_name)
         except HTTPError as e:
             print("Got an error while sending message to EventBridge: ", e.code, e.reason)
+        except URLError as e:
+            print("Server connection failed: ", e.reason)
+            pass
+    if "None" not in SNS_TOPIC_NAME:
+        try:
+            print("Sending the alert to SNS topic")
+            send_email(event_details, event_type, affected_accounts, resources)
+        except HTTPError as e:
+            print("Got an error while sending message to SNS topic: ", e.code, e.reason)
         except URLError as e:
             print("Server connection failed: ", e.reason)
             pass
@@ -115,12 +131,17 @@ def send_alert(event_details, affected_accounts, affected_entities, event_type):
             pass
 
 def send_org_alert(event_details, affected_org_accounts, affected_org_entities, event_type):
-    slack_url = get_secrets()["slack"]
-    teams_url = get_secrets()["teams"]
-    chime_url = get_secrets()["chime"]
+    #slack_url = get_secrets()["slack"]
+    #teams_url = get_secrets()["teams"]
+    #chime_url = get_secrets()["chime"]
+    #event_bus_name = get_secrets()["eventbusname"]
+    slack_url = os.environ['SLACK_URL']
+    teams_url = os.environ['TEAMS_URL']
+    chime_url = os.environ['CHIME_URL']
+    event_bus_name = os.environ['EVENT_BUS_NAME']
+    sns_topic_name = os.environ['SNS_TOPIC_ARN']
     SENDER = os.environ['FROM_EMAIL']
     RECIPIENT = os.environ['TO_EMAIL']
-    event_bus_name = get_secrets()["eventbusname"]
 
     #get the list of resources from the array of affected entities
     resources = get_resources_from_entities(affected_org_entities)
@@ -133,6 +154,15 @@ def send_org_alert(event_details, affected_org_accounts, affected_org_entities, 
                 event_type, resources, event_bus_name)
         except HTTPError as e:
             print("Got an error while sending message to EventBridge: ", e.code, e.reason)
+        except URLError as e:
+            print("Server connection failed: ", e.reason)
+            pass
+    if "None" not in sns_topic_name:
+        try:
+            print("Sending the org alert to SNS topic")
+            send_email(event_details, event_type, affected_accounts, resources)
+        except HTTPError as e:
+            print("Got an error while sending org message to SNS topic: ", e.code, e.reason)
         except URLError as e:
             print("Server connection failed: ", e.reason)
             pass
@@ -284,6 +314,35 @@ def send_org_email(event_details, eventType, affected_org_accounts, affected_org
         },
     )
 
+def send_sns(event_details, eventType, affected_accounts, affected_entities):
+    SNS_TOPIC_ARN = os.environ['SNS_TOPIC_ARN']
+    #AWS_REGIONS = "us-east-1"
+    AWS_REGION = os.environ['AWS_REGION']
+    SNS_SUBJECT = os.environ['SNS_SUBJECT']
+    BODY_HTML = get_message_for_sns(event_details, eventType, affected_accounts, affected_entities)
+    sns_client = boto3.client('sns', region_name=AWS_REGION)
+    response = sns_client.publish(
+        TopicArn = SNS_TOPIC_ARN,
+        Subject = SNS_SUBJECT,
+        Message = BODY_HTML
+    )
+
+
+def send_org_sns(event_details, eventType, affected_org_accounts, affected_org_entities):
+    SNS_TOPIC_ARN = os.environ['SNS_TOPIC_ARN']
+    #AWS_REGION = "us-east-1"
+    AWS_REGION = os.environ['AWS_REGION']
+    SNS_SUBJECT = os.environ['SNS_SUBJECT']
+    BODY_HTML = get_org_message_for_email(event_details, eventType, affected_org_accounts, affected_org_entities)
+    client = boto3.client('ses', region_name=AWS_REGION)
+    sns_client = boto3.client('sns', region_name=AWS_REGION)
+    response = sns_client.publish(
+        TopicArn = SNS_TOPIC_ARN,
+        Subject = SNS_SUBJECT, 
+        Message = BODY_HTML
+    )
+
+    
 # non-organization view affected accounts
 def get_health_accounts(health_client, event, event_arn):
     affected_accounts = []
@@ -534,6 +593,27 @@ def update_ddb(event_arn, str_update, status_code, event_details, affected_accou
             else:
                 print("No new updates found, checking again in 1 minute.")
 
+# For Customers using AWS Organizations
+def send_org_notifications(status_code, event_details, affected_org_accounts, affected_org_entities):
+    affected_org_accounts_details = [
+        f"{get_account_name(account_id)} ({account_id})" for account_id in affected_org_accounts]            
+    # send to configured endpoints
+    if status_code != "closed":
+        send_org_alert(event_details, affected_org_accounts_details, affected_org_entities, event_type="create")
+    else:
+        send_org_alert(event_details, affected_org_accounts_details, affected_org_entities, event_type="resolve")
+
+# For Customers not using AWS Organizations
+def send_notifications(status_code, event_details, affected_accounts, affected_entities):
+    affected_accounts_details = [
+                    f"{get_account_name(account_id)} ({account_id})" for account_id in affected_accounts]
+    # send to configured endpoints
+    if status_code != "closed":
+        send_alert(event_details, affected_accounts_details, affected_entities, event_type="create")
+    else:
+        send_alert(event_details, affected_accounts_details, affected_entities, event_type="resolve")
+
+
 def get_secrets():
     secret_teams_name = "MicrosoftChannelID"
     secret_slack_name = "SlackChannelID"
@@ -704,7 +784,8 @@ def describe_events(health_client):
                     continue
                 else:
                     # write to dynamoDB for persistence
-                    update_ddb(event_arn, str_update, status_code, event_details, affected_accounts, affected_entities)
+                    #update_ddb(event_arn, str_update, status_code, event_details, affected_accounts, affected_entities)
+                    send_notifications(status_code, event_details, affected_accounts, affected_entities)
         else:
             print("No events found in time frame, checking again in 1 minute.")
 
@@ -781,10 +862,11 @@ def describe_org_events(health_client):
                         event_details['failedSet'][0]['errorMessage'])
                     continue
                 else:
-                    # write to dynamoDB for persistence
                     if update_org_ddb_flag:
-                        update_org_ddb(event_arn, str_update, status_code, event_details, affected_org_accounts,
-                                    affected_org_entities)
+                        # write to dynamoDB for persistence
+                        #update_org_ddb(event_arn, str_update, status_code, event_details, affected_org_accounts,
+                        #            affected_org_entities)
+                        send_org_notifications(status_code, event_details, affected_org_accounts, affected_org_entities)
         else:
             print("No events found in time frame, checking again in 1 minute.")
 
@@ -845,7 +927,10 @@ def getAccountIDs():
     return account_ids
 
 def get_sts_token(service):
-    assumeRoleArn = get_secrets()["ahaassumerole"]
+    #assumeRoleArn = get_secrets()["ahaassumerole"]
+    #assumeRoleArn = os.environ['AHA_ASSUME_ROLE']
+    assumeRoleArn = os.environ['MANAGEMENT_ROLE_ARN'] 
+    
     boto3_client = None
     
     if "arn:aws:iam::" in assumeRoleArn:
@@ -884,7 +969,7 @@ def get_sts_token(service):
     return boto3_client
 
 def main(event, context):
-    print("THANK YOU FOR CHOOSING AWS HEALTH AWARE!")
+    #print("THANK YOU FOR CHOOSING AWS HEALTH AWARE!")
     health_client = get_sts_token('health')
     org_status = os.environ['ORG_STATUS']
     #str_ddb_format_sec = '%s'
