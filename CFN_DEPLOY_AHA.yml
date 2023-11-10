@@ -59,7 +59,7 @@ Metadata:
       AmazonChimeWebhookURL:
         default: Amazon Chime Webhook URL
       SNSTopicName:
-        default: SNS Topic ARN
+        default: SNS Topic Name 
       SNSSubject:
         default: Subject of SNS Message
       FromEmail:
