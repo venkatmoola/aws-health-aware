@@ -692,7 +692,8 @@ Hi,
 
 Greetings from AWS Health - incidents, issues and event notifications,
         
-Good news! The AWS Health incident from earlier has now been marked as resolved.<br><br>
+Good news! The AWS Health incident from earlier has now been marked as resolved.
+
     Account(s): {affected_org_accounts}
     Resource(s): {affected_org_entities}
     Service: {event_details['successfulSet'][0]['event']['service']}
