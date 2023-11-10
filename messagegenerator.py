@@ -593,6 +593,7 @@ def get_message_for_sns(event_details, event_type, affected_accounts, affected_e
     # Not srue why we have the new line in the affected entities code here
     if len(affected_entities) >= 1:
         affected_entities = "\n".join(affected_entities)
+        #affected_entities = "\n".join([" " * 10 + s for s in affected_entities])
         if affected_entities == "UNKNOWN":
             affected_entities = "All resources\nin region"
     else:
@@ -659,6 +660,7 @@ Cloud Engineering
 def get_org_message_for_sns(event_details, event_type, affected_org_accounts, affected_org_entities):
     if len(affected_org_entities) >= 1:
         affected_org_entities = "\n".join(affected_org_entities)
+        #affected_org_entities = "\n".join([" " * 10 + s for s in affected_org_entities])
     else:
         affected_org_entities = "All services related resources in region"
     if len(affected_org_accounts) >= 1:
