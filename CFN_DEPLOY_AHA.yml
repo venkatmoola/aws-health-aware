@@ -509,7 +509,7 @@ Resources:
           EVENT_BUS_NAME:
             Ref: EventBusName 
           SNS_TOPIC_ARN:
-            Ref: !Sub 'arn:aws:sns:${SecondaryRegion}:${AWS::AccountId}:${SNSTopicName}'
+            Fn::Sub: 'arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${SNSTopicName}'
           SNS_SUBJECT:
             Ref: SNSSubject
           FROM_EMAIL:
