@@ -605,19 +605,20 @@ def get_message_for_sns(event_details, event_type, affected_accounts, affected_e
         MESSAGE_BODY = f"""
 Hi,
 
-Greetings from AWS Health - incidents, issues and event notifications,
+Greetings from AWS Health - Incidents, Issues and Event Notifications,
             
 There is an AWS incident that is in effect which may likely impact your resources. Here are the details:
 
-    Account(s): {affected_accounts}
-    Resource(s): {affected_entities}
-    Service: {event_details['successfulSet'][0]['event']['service']}
-    Region: {event_details['successfulSet'][0]['event']['region']}
-    Start Time (UTC): {cleanup_time(event_details['successfulSet'][0]['event']['startTime'])}                
-    Status: {event_details['successfulSet'][0]['event']['statusCode']}
-    Event ARN: {event_details['successfulSet'][0]['event']['arn']} 
-    
-    Updates: {event_details['successfulSet'][0]['eventDescription']['latestDescription']}
+    - Account(s) : {affected_accounts}
+    - Resource(s) : {affected_entities}
+    - Service : {event_details['successfulSet'][0]['event']['service']}
+    - Region : {event_details['successfulSet'][0]['event']['region']}
+    - Start Time (UTC) : {cleanup_time(event_details['successfulSet'][0]['event']['startTime'])}                
+    - Status : {event_details['successfulSet'][0]['event']['statusCode']}
+    - Event ARN : {event_details['successfulSet'][0]['event']['arn']}     
+    - Latest Updates : 
+      {event_details['successfulSet'][0]['eventDescription']['latestDescription']}
+
         
 For updates, please visit the https://status.aws.amazon.com AWS Service Health Dashboard
     
@@ -629,22 +630,24 @@ Cloud Engineering
         MESSAGE_BODY = f"""
 Hi,
 
-Greetings from AWS Health - incidents, issues and event notifications,
+Greetings from AWS Health - Incidents, Issues and Event Notifications,
                 
 Good news! The AWS Health incident from earlier has now been marked as resolved.
     
-    Account(s): {affected_accounts}
-    Resource(s):   {affected_entities}                    
-    Service: {event_details['successfulSet'][0]['event']['service']}
-    Region: {event_details['successfulSet'][0]['event']['region']}
-    Start Time (UTC): {cleanup_time(event_details['successfulSet'][0]['event']['startTime'])}
-    End Time (UTC): {cleanup_time(event_details['successfulSet'][0]['event']['endTime'])}
-    Status: {event_details['successfulSet'][0]['event']['statusCode']}                
-    Event ARN: {event_details['successfulSet'][0]['event']['arn']}                
-    
-    Updates: {event_details['successfulSet'][0]['eventDescription']['latestDescription']}  
+    - Account(s) : {affected_accounts}
+    - Resource(s) :   {affected_entities}                    
+    - Service : {event_details['successfulSet'][0]['event']['service']}
+    - Region : {event_details['successfulSet'][0]['event']['region']}
+    - Start Time (UTC) : {cleanup_time(event_details['successfulSet'][0]['event']['startTime'])}
+    - End Time (UTC) : {cleanup_time(event_details['successfulSet'][0]['event']['endTime'])}
+    - Status : {event_details['successfulSet'][0]['event']['statusCode']}                
+    - Event ARN : {event_details['successfulSet'][0]['event']['arn']}                
+    - Latest Updates : 
+      {event_details['successfulSet'][0]['eventDescription']['latestDescription']}  
+
             
 If you are still experiencing issues related to this event, please open an https://console.aws.amazon.com/support/home AWS Support case within your account.
+
                 
 Thanks, 
 Cloud Engineering                
@@ -666,21 +669,22 @@ def get_org_message_for_sns(event_details, event_type, affected_org_accounts, af
         MESSAGE_BODY = f"""
 Hi,
 
-Greetings from AWS Health - incidents, issues and event notifications,
+Greetings from AWS Health - Incidents, Issues and Event Notifications,
         
 There is an AWS incident that is in effect which may likely impact your resources. Here are the details:
-   
-    Account(s): {affected_org_accounts}
-    Resource(s): {affected_org_entities}
-    Service: {event_details['successfulSet'][0]['event']['service']}
-    Region: {event_details['successfulSet'][0]['event']['region']}
-    Start Time (UTC): {cleanup_time(event_details['successfulSet'][0]['event']['startTime'])}                
-    Status: {event_details['successfulSet'][0]['event']['statusCode']}
-    Event ARN: {event_details['successfulSet'][0]['event']['arn']} 
-    
-    Updates: {event_details['successfulSet'][0]['eventDescription']['latestDescription']}
+
+    - Account(s) : {affected_org_accounts}
+    - Resource(s) : {affected_org_entities}
+    - Service : {event_details['successfulSet'][0]['event']['service']}
+    - Region : {event_details['successfulSet'][0]['event']['region']}
+    - Start Time (UTC) : {cleanup_time(event_details['successfulSet'][0]['event']['startTime'])}                
+    - Status : {event_details['successfulSet'][0]['event']['statusCode']}
+    - Event ARN : {event_details['successfulSet'][0]['event']['arn']}     
+    - Latest Updates : 
+      {event_details['successfulSet'][0]['eventDescription']['latestDescription']}        
+
         
-For updates, please visit the href=https://status.aws.amazon.com>AWS Service Health Dashboard
+For updates, please visit the https://status.aws.amazon.com AWS Service Health Dashboard
     
                 
 Thanks, 
@@ -690,20 +694,21 @@ Cloud Engineering
         MESSAGE_BODY = f"""
 Hi,
 
-Greetings from AWS Health - incidents, issues and event notifications,
+Greetings from AWS Health - Incidents, Issues and Event Notifications,
         
 Good news! The AWS Health incident from earlier has now been marked as resolved.
 
-    Account(s): {affected_org_accounts}
-    Resource(s): {affected_org_entities}
-    Service: {event_details['successfulSet'][0]['event']['service']}
-    Region: {event_details['successfulSet'][0]['event']['region']}
-    Start Time (UTC): {cleanup_time(event_details['successfulSet'][0]['event']['startTime'])}                
-    End Time (UTC): {cleanup_time(event_details['successfulSet'][0]['event']['endTime'])}
-    Status: {event_details['successfulSet'][0]['event']['statusCode']}
-    Event ARN: {event_details['successfulSet'][0]['event']['arn']} 
-    
-    Updates: {event_details['successfulSet'][0]['eventDescription']['latestDescription']}
+    - Account(s) : {affected_org_accounts}
+    - Resource(s) : {affected_org_entities}
+    - Service : {event_details['successfulSet'][0]['event']['service']}
+    - Region : {event_details['successfulSet'][0]['event']['region']}
+    - Start Time (UTC) : {cleanup_time(event_details['successfulSet'][0]['event']['startTime'])}
+    - End Time (UTC) : {cleanup_time(event_details['successfulSet'][0]['event']['endTime'])}
+    - Status : {event_details['successfulSet'][0]['event']['statusCode']}                
+    - Event ARN : {event_details['successfulSet'][0]['event']['arn']}                
+    - Latest Updates : 
+      {event_details['successfulSet'][0]['eventDescription']['latestDescription']}  
+            
         
 If you are still experiencing issues related to this event, please open an https://console.aws.amazon.com/support/home AWS Support case within your account.
 
