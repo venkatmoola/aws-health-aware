@@ -25,7 +25,7 @@ Metadata:
       - Label:
           default: Notification Setup - For Alerting via SNS
         Parameters:
-          - SNSTopicARN
+          - SNSTopicName
           - SNSSubject
       - Label:
           default: Email Setup - For Alerting via Email
@@ -58,7 +58,7 @@ Metadata:
         default: Microsoft Teams Webhook URL
       AmazonChimeWebhookURL:
         default: Amazon Chime Webhook URL
-      SNSTopicARN:
+      SNSTopicName:
         default: SNS Topic ARN
       SNSSubject:
         default: Subject of SNS Message
@@ -81,8 +81,8 @@ Conditions:
   UsingTeams: !Not [!Equals [!Ref MicrosoftTeamsWebhookURL, None]]
   UsingChime: !Not [!Equals [!Ref AmazonChimeWebhookURL, None]]
   UsingEventBridge: !Not [!Equals [!Ref EventBusName, None]]
-  UsingSNSTopicARN: !Not [!Equals [!Ref SNSTopicARN, None]]
-  #UsingSecrets: !Or [!Condition UsingSlack, !Condition UsingTeams, !Condition UsingChime, !Condition UsingEventBridge, !Condition UsingSNSTopicARN, !Condition UsingCrossAccountRole]
+  UsingSNSTopicName: !Not [!Equals [!Ref SNSTopicName, None]]
+  #UsingSecrets: !Or [!Condition UsingSlack, !Condition UsingTeams, !Condition UsingChime, !Condition UsingEventBridge, !Condition UsingSNSTopicName, !Condition UsingCrossAccountRole]
   UsingCrossAccountRole: !Not [!Equals [!Ref ManagementAccountRoleArn, None]]
   NotUsingMultiRegion: !Equals [!Ref SecondaryRegion, 'No']
   UsingMultiRegion: !Not [!Equals [!Ref SecondaryRegion, 'No']]
@@ -90,7 +90,7 @@ Conditions:
   UsingMultiRegionTeams: !And [!Condition UsingTeams, !Condition UsingMultiRegion]
   UsingMultiRegionSlack: !And [!Condition UsingSlack, !Condition UsingMultiRegion]
   UsingMultiRegionEventBridge: !And [!Condition UsingEventBridge, !Condition UsingMultiRegion]
-  UsingMultiRegionSNSTopicARN: !And [!Condition UsingSNSTopicARN, !Condition UsingMultiRegion]
+  UsingMultiRegionSNSTopicName: !And [!Condition UsingSNSTopicName, !Condition UsingMultiRegion]
   UsingMultiRegionChime: !And [!Condition UsingChime, !Condition UsingMultiRegion]
   UsingMultiRegionCrossAccountRole: !And [!Condition UsingCrossAccountRole, !Condition UsingMultiRegion]
   UsingAccountIds: !Not [!Equals [!Ref AccountIDs, None]]  
@@ -161,9 +161,10 @@ Parameters:
       such as DataDog/NewRelic/PagerDuty. If you don't prefer to use EventBridge, leave the default (None).
     Type: String
     Default: None
-  SNSTopicARN:
+  SNSTopicName:
     Description: >-
-      Enter the SNS Topic ARN name. If you don't prefer to use SNS, leave the default (None).
+      This is to send alerts via AWS SNS topic. Enter only SNS Topic name (without ARN).
+      If you don't prefer to use SNS, leave the default (None).
     Type: String
     Default: None
   SNSSubject:
@@ -380,7 +381,7 @@ Resources:
                   Environment:
                     Variables:
                       REGIONS: ${Regions}
-                      SNS_TOPIC_ARN: ${SNSTopicARN}
+                      SNS_TOPIC_ARN: "arn:aws:sns:${SecondaryRegion}:${AWS::AccountId}:${SNSTopicName}"
                       SNS_SUBJECT: ${SNSSubject}
                       FROM_EMAIL: "${FromEmail}"
                       TO_EMAIL: "${ToEmail}"
@@ -508,7 +509,7 @@ Resources:
           EVENT_BUS_NAME:
             Ref: EventBusName 
           SNS_TOPIC_ARN:
-            Ref: SNSTopicARN
+            Ref: !Sub 'arn:aws:sns:${SecondaryRegion}:${AWS::AccountId}:${SNSTopicName}'
           SNS_SUBJECT:
             Ref: SNSSubject
           FROM_EMAIL:
