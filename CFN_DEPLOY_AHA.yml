@@ -82,7 +82,7 @@ Conditions:
   UsingChime: !Not [!Equals [!Ref AmazonChimeWebhookURL, None]]
   UsingEventBridge: !Not [!Equals [!Ref EventBusName, None]]
   UsingSNSTopicName: !Not [!Equals [!Ref SNSTopicName, None]]
-  #UsingSecrets: !Or [!Condition UsingSlack, !Condition UsingTeams, !Condition UsingChime, !Condition UsingEventBridge, !Condition UsingSNSTopicName, !Condition UsingCrossAccountRole]
+  #UsingSecrets: !Or [!Condition UsingSlack, !Condition UsingTeams, !Condition UsingChime, !Condition UsingEventBridge, !Condition UsingCrossAccountRole]
   UsingCrossAccountRole: !Not [!Equals [!Ref ManagementAccountRoleArn, None]]
   NotUsingMultiRegion: !Equals [!Ref SecondaryRegion, 'No']
   UsingMultiRegion: !Not [!Equals [!Ref SecondaryRegion, 'No']]
@@ -229,8 +229,56 @@ Parameters:
     Type: String
     Default: AWS Health Alert
 Resources:
+  GlobalDDBTable:
+    Type: AWS::DynamoDB::GlobalTable
+    Condition: UsingMultiRegion
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: arn
+        AttributeType: S
+      KeySchema:
+      - AttributeName: arn
+        KeyType: HASH
+      Replicas:
+      - Region: !Ref SecondaryRegion
+        ReadProvisionedThroughputSettings:
+          ReadCapacityUnits: 5
+      - Region: !Ref "AWS::Region"
+        ReadProvisionedThroughputSettings:
+          ReadCapacityUnits: 5
+      StreamSpecification:
+        StreamViewType: "NEW_AND_OLD_IMAGES"
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      WriteProvisionedThroughputSettings:
+        WriteCapacityAutoScalingSettings:
+          MaxCapacity: 10
+          MinCapacity: 10
+          TargetTrackingScalingPolicyConfiguration:
+            DisableScaleIn: false
+            ScaleInCooldown: 30
+            ScaleOutCooldown: 30
+            TargetValue: 10
+  DynamoDBTable:
+    Type: 'AWS::DynamoDB::Table'
+    Condition: NotUsingMultiRegion
+    Properties:
+      AttributeDefinitions:
+        - AttributeName: arn
+          AttributeType: S
+      KeySchema:
+        - AttributeName: arn
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: TRUE        
   AHASecondaryRegionStackSet:
     Condition: UsingMultiRegion
+    DependsOn: GlobalDDBTable
     Type: AWS::CloudFormation::StackSet
     Properties:
       Description: Secondary Region CloudFormation Template for AWS Health Aware (AHA)
@@ -386,6 +434,7 @@ Resources:
                       FROM_EMAIL: "${FromEmail}"
                       TO_EMAIL: "${ToEmail}"
                       EMAIL_SUBJECT: "${Subject}"
+                      DYNAMODB_TABLE: "${GlobalDDBTable}"
                       EVENT_SEARCH_BACK: ${EventSearchBack}
                       ORG_STATUS: ${AWSOrganizationsEnabled}
                       HEALTH_EVENT_TYPE: "${AWSHealthEventType}"
@@ -416,6 +465,51 @@ Resources:
                 Resource: 
                   - !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*'
                   - !If [UsingMultiRegion, !Sub 'arn:aws:logs:${SecondaryRegion}:${AWS::AccountId}:*', !Ref AWS::NoValue]
+              - !If 
+                - UsingSecrets
+                - Effect: Allow
+                  Action:
+                   - 'secretsmanager:GetResourcePolicy'
+                   - 'secretsmanager:DescribeSecret'
+                   - 'secretsmanager:ListSecretVersionIds'
+                   - 'secretsmanager:GetSecretValue'
+                  Resource: 
+                   - !If [UsingTeams, !Sub '${MicrosoftChannelSecret}', !Ref AWS::NoValue]
+                   - !If [UsingSlack, !Sub '${SlackChannelSecret}', !Ref AWS::NoValue]
+                   - !If [UsingEventBridge, !Sub '${EventBusNameSecret}', !Ref AWS::NoValue]
+                   - !If [UsingChime, !Sub '${ChimeChannelSecret}', !Ref AWS::NoValue]
+                   - !If [UsingCrossAccountRole, !Sub '${AssumeRoleSecret}', !Ref AWS::NoValue]      
+                   - !If
+                     - UsingMultiRegionTeams
+                     - !Sub 
+                       - 'arn:aws:secretsmanager:${SecondaryRegion}:${AWS::AccountId}:secret:${SecretNameWithSha}' 
+                       - { SecretNameWithSha: !Select [1, !Split [':secret:', !Sub '${MicrosoftChannelSecret}' ]]}
+                     - !Ref AWS::NoValue
+                   - !If
+                     - UsingMultiRegionSlack
+                     - !Sub 
+                       - 'arn:aws:secretsmanager:${SecondaryRegion}:${AWS::AccountId}:secret:${SecretNameWithSha}' 
+                       - { SecretNameWithSha: !Select [1, !Split [':secret:', !Sub '${SlackChannelSecret}' ]]}
+                     - !Ref AWS::NoValue
+                   - !If
+                     - UsingMultiRegionEventBridge
+                     - !Sub 
+                       - 'arn:aws:secretsmanager:${SecondaryRegion}:${AWS::AccountId}:secret:${SecretNameWithSha}' 
+                       - { SecretNameWithSha: !Select [1, !Split [':secret:', !Sub '${EventBusNameSecret}' ]]}
+                     - !Ref AWS::NoValue
+                   - !If
+                     - UsingMultiRegionChime
+                     - !Sub 
+                       - 'arn:aws:secretsmanager:${SecondaryRegion}:${AWS::AccountId}:secret:${SecretNameWithSha}' 
+                       - { SecretNameWithSha: !Select [1, !Split [':secret:', !Sub '${ChimeChannelSecret}' ]]}
+                     - !Ref AWS::NoValue
+                   - !If
+                     - UsingMultiRegionCrossAccountRole
+                     - !Sub 
+                       - 'arn:aws:secretsmanager:${SecondaryRegion}:${AWS::AccountId}:secret:${SecretNameWithSha}' 
+                       - { SecretNameWithSha: !Select [1, !Split [':secret:', !Sub '${AssumeRoleSecret}' ]]}
+                     - !Ref AWS::NoValue
+                - !Ref 'AWS::NoValue'
               - Effect: Allow
                 Action:
                   - health:DescribeAffectedAccountsForOrganization
@@ -431,6 +525,12 @@ Resources:
                 Resource: "*"                               
               - Effect: Allow
                 Action:
+                  - dynamodb:ListTables
+                Resource: 
+                  - !Sub 'arn:aws:dynamodb:${AWS::Region}:${AWS::AccountId}:*'
+                  - !If [UsingMultiRegion, !Sub 'arn:aws:dynamodb:${SecondaryRegion}:${AWS::AccountId}:*', !Ref AWS::NoValue]
+              - Effect: Allow
+                Action:
                   - ses:SendEmail
                 Resource: 
                   - !Sub 'arn:aws:ses:${AWS::Region}:${AWS::AccountId}:*'
@@ -441,6 +541,18 @@ Resources:
                 Resource: 
                   - !Sub 'arn:aws:sns:${AWS::Region}:${AWS::AccountId}:*'
                   - !If [UsingMultiRegion, !Sub 'arn:aws:sns:${SecondaryRegion}:${AWS::AccountId}:*', !Ref AWS::NoValue]
+              - Effect: Allow
+                Action:
+                  - dynamodb:UpdateTimeToLive
+                  - dynamodb:PutItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:GetItem
+                  - dynamodb:Scan
+                  - dynamodb:Query
+                  - dynamodb:UpdateItem
+                  - dynamodb:UpdateTable
+                  - dynamodb:GetRecords
+                Resource: !If [UsingMultiRegion, !GetAtt GlobalDDBTable.Arn, !GetAtt DynamoDBTable.Arn]
               - Effect: Allow
                 Action:
                   - events:PutEvents
@@ -518,6 +630,8 @@ Resources:
             Ref: ToEmail
           EMAIL_SUBJECT:
             Ref: Subject
+          DYNAMODB_TABLE:
+            !If [UsingMultiRegion, !Ref GlobalDDBTable, !Ref DynamoDBTable]
           EVENT_SEARCH_BACK:
             Ref: EventSearchBack
           ORG_STATUS:

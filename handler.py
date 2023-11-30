@@ -12,6 +12,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen, URLError, HTTPError
 from botocore.config import Config
 from botocore.exceptions import ClientError
+from boto3.dynamodb.conditions import Key, Attr
 from messagegenerator import get_message_for_slack, get_org_message_for_slack, get_message_for_chime, \
     get_org_message_for_chime, \
     get_message_for_teams, get_org_message_for_teams, get_message_for_email, get_org_message_for_email, \
@@ -340,8 +341,8 @@ def send_org_sns(event_details, eventType, affected_org_accounts, affected_org_e
         Subject = SNS_SUBJECT, 
         Message = BODY_HTML
     )
-
     
+
 # non-organization view affected accounts
 def get_health_accounts(health_client, event, event_arn):
     affected_accounts = []
@@ -783,8 +784,8 @@ def describe_events(health_client):
                     continue
                 else:
                     # write to dynamoDB for persistence
-                    #update_ddb(event_arn, str_update, status_code, event_details, affected_accounts, affected_entities)
-                    send_notifications(status_code, event_details, affected_accounts, affected_entities)
+                    update_ddb(event_arn, str_update, status_code, event_details, affected_accounts, affected_entities)
+                    #send_notifications(status_code, event_details, affected_accounts, affected_entities)
         else:
             print("No events found in time frame, checking again in 1 minute.")
 
@@ -861,11 +862,11 @@ def describe_org_events(health_client):
                         event_details['failedSet'][0]['errorMessage'])
                     continue
                 else:
+                    # write to dynamoDB for persistence
                     if update_org_ddb_flag:
-                        # write to dynamoDB for persistence
-                        #update_org_ddb(event_arn, str_update, status_code, event_details, affected_org_accounts,
-                        #            affected_org_entities)
-                        send_org_notifications(status_code, event_details, affected_org_accounts, affected_org_entities)
+                        update_org_ddb(event_arn, str_update, status_code, event_details, affected_org_accounts,
+                                    affected_org_entities)
+                        #send_org_notifications(status_code, event_details, affected_org_accounts, affected_org_entities)
         else:
             print("No events found in time frame, checking again in 1 minute.")
 
@@ -926,11 +927,10 @@ def getAccountIDs():
     return account_ids
 
 def get_sts_token(service):
+    boto3_client = None
     #assumeRoleArn = get_secrets()["ahaassumerole"]
     #assumeRoleArn = os.environ['AHA_ASSUME_ROLE']
     assumeRoleArn = os.environ['MANAGEMENT_ROLE_ARN'] 
-    
-    boto3_client = None
     
     if "arn:aws:iam::" in assumeRoleArn:
         ACCESS_KEY = []
