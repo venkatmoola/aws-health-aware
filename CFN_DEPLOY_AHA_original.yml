@@ -16,12 +16,17 @@ Metadata:
       - Label:
           default: >-
             Communication Channels - Slack/Microsoft Teams/Amazon Chime And/or
-            EventBridge
+            EventBridge And/or SNS Notifications
         Parameters:
           - SlackWebhookURL
           - MicrosoftTeamsWebhookURL
           - AmazonChimeWebhookURL
           - EventBusName
+      - Label:
+          default: Notification Setup - For Alerting via SNS
+        Parameters:
+          - SNSTopicName
+          - SNSSubject
       - Label:
           default: Email Setup - For Alerting via Email
         Parameters:
@@ -53,6 +58,10 @@ Metadata:
         default: Microsoft Teams Webhook URL
       AmazonChimeWebhookURL:
         default: Amazon Chime Webhook URL
+      SNSTopicName:
+        default: SNS Topic Name 
+      SNSSubject:
+        default: Subject of SNS Message
       FromEmail:
         default: Email From
       ToEmail:
@@ -72,7 +81,8 @@ Conditions:
   UsingTeams: !Not [!Equals [!Ref MicrosoftTeamsWebhookURL, None]]
   UsingChime: !Not [!Equals [!Ref AmazonChimeWebhookURL, None]]
   UsingEventBridge: !Not [!Equals [!Ref EventBusName, None]]
-  UsingSecrets: !Or [!Condition UsingSlack, !Condition UsingTeams, !Condition UsingChime, !Condition UsingEventBridge, !Condition UsingCrossAccountRole]
+  UsingSNSTopicName: !Not [!Equals [!Ref SNSTopicName, None]]
+  #UsingSecrets: !Or [!Condition UsingSlack, !Condition UsingTeams, !Condition UsingChime, !Condition UsingEventBridge, !Condition UsingCrossAccountRole]
   UsingCrossAccountRole: !Not [!Equals [!Ref ManagementAccountRoleArn, None]]
   NotUsingMultiRegion: !Equals [!Ref SecondaryRegion, 'No']
   UsingMultiRegion: !Not [!Equals [!Ref SecondaryRegion, 'No']]
@@ -80,6 +90,7 @@ Conditions:
   UsingMultiRegionTeams: !And [!Condition UsingTeams, !Condition UsingMultiRegion]
   UsingMultiRegionSlack: !And [!Condition UsingSlack, !Condition UsingMultiRegion]
   UsingMultiRegionEventBridge: !And [!Condition UsingEventBridge, !Condition UsingMultiRegion]
+  UsingMultiRegionSNSTopicName: !And [!Condition UsingSNSTopicName, !Condition UsingMultiRegion]
   UsingMultiRegionChime: !And [!Condition UsingChime, !Condition UsingMultiRegion]
   UsingMultiRegionCrossAccountRole: !And [!Condition UsingCrossAccountRole, !Condition UsingMultiRegion]
   UsingAccountIds: !Not [!Equals [!Ref AccountIDs, None]]  
@@ -150,6 +161,16 @@ Parameters:
       such as DataDog/NewRelic/PagerDuty. If you don't prefer to use EventBridge, leave the default (None).
     Type: String
     Default: None
+  SNSTopicName:
+    Description: >-
+      This is to send alerts via AWS SNS topic. Enter only SNS Topic name (without ARN).
+      If you don't prefer to use SNS, leave the default (None).
+    Type: String
+    Default: None
+  SNSSubject:
+    Description: Enter the subject for the SNS Topic message notifications
+    Type: String
+    Default: AWS Health Alert Notifications
   SlackWebhookURL:
     Description: >-
       Enter the Slack Webhook URL. If you don't prefer to use Slack, leave the default (None).
@@ -408,6 +429,8 @@ Resources:
                   Environment:
                     Variables:
                       REGIONS: ${Regions}
+                      SNS_TOPIC_ARN: "arn:aws:sns:${SecondaryRegion}:${AWS::AccountId}:${SNSTopicName}"
+                      SNS_SUBJECT: ${SNSSubject}
                       FROM_EMAIL: "${FromEmail}"
                       TO_EMAIL: "${ToEmail}"
                       EMAIL_SUBJECT: "${Subject}"
@@ -514,6 +537,12 @@ Resources:
                   - !If [UsingMultiRegion, !Sub 'arn:aws:ses:${SecondaryRegion}:${AWS::AccountId}:*', !Ref AWS::NoValue]
               - Effect: Allow
                 Action:
+                  - sns:Publish
+                Resource: 
+                  - !Sub 'arn:aws:sns:${AWS::Region}:${AWS::AccountId}:*'
+                  - !If [UsingMultiRegion, !Sub 'arn:aws:sns:${SecondaryRegion}:${AWS::AccountId}:*', !Ref AWS::NoValue]
+              - Effect: Allow
+                Action:
                   - dynamodb:UpdateTimeToLive
                   - dynamodb:PutItem
                   - dynamodb:DeleteItem
@@ -560,86 +589,6 @@ Resources:
       FunctionName: !GetAtt LambdaFunction.Arn
       Principal: events.amazonaws.com
       SourceArn: !GetAtt LambdaSchedule.Arn
-  MicrosoftChannelSecret:
-    Type: 'AWS::SecretsManager::Secret'
-    Condition: UsingTeams    
-    Properties:
-      Name: MicrosoftChannelID
-      Description: Microsoft Channel ID Secret
-      ReplicaRegions:
-        !If 
-        - UsingMultiRegion
-        - [{ Region: !Sub '${SecondaryRegion}' }]
-        - !Ref "AWS::NoValue"
-      SecretString:
-        Ref: MicrosoftTeamsWebhookURL
-      Tags:
-        - Key: HealthCheckMicrosoft
-          Value: ChannelID
-  SlackChannelSecret:
-    Type: 'AWS::SecretsManager::Secret'
-    Condition: UsingSlack   
-    Properties:
-      Name: SlackChannelID
-      Description: Slack Channel ID Secret
-      ReplicaRegions:
-        !If 
-        - UsingMultiRegion
-        - [{ Region: !Sub '${SecondaryRegion}' }]
-        - !Ref "AWS::NoValue"
-      SecretString:
-        Ref: SlackWebhookURL
-      Tags:
-        - Key: HealthCheckSlack
-          Value: ChannelID
-  EventBusNameSecret:
-    Type: 'AWS::SecretsManager::Secret'
-    Condition: UsingEventBridge       
-    Properties:
-      Name: EventBusName
-      Description: EventBus Name Secret
-      ReplicaRegions:
-        !If 
-        - UsingMultiRegion
-        - [{ Region: !Sub '${SecondaryRegion}' }]
-        - !Ref "AWS::NoValue"
-      SecretString:
-        Ref: EventBusName
-      Tags:
-        - Key: EventBusName
-          Value: ChannelID
-  ChimeChannelSecret:
-    Type: 'AWS::SecretsManager::Secret'
-    Condition: UsingChime    
-    Properties:
-      Name: ChimeChannelID
-      Description: Chime Channel ID Secret
-      ReplicaRegions:
-        !If 
-        - UsingMultiRegion
-        - [{ Region: !Sub '${SecondaryRegion}' }]
-        - !Ref "AWS::NoValue"
-      SecretString:
-        Ref: AmazonChimeWebhookURL
-      Tags:
-        - Key: HealthCheckChime
-          Value: ChannelID
-  AssumeRoleSecret:
-    Type: 'AWS::SecretsManager::Secret'
-    Condition: UsingCrossAccountRole    
-    Properties:
-      Name: AssumeRoleArn
-      Description: Management account role for AHA to assume
-      ReplicaRegions:
-        !If 
-        - UsingMultiRegion
-        - [{ Region: !Sub '${SecondaryRegion}' }]
-        - !Ref "AWS::NoValue"
-      SecretString:
-        Ref: ManagementAccountRoleArn
-      Tags:
-        - Key: AssumeRoleArn
-          Value: ChannelID          
   LambdaFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
@@ -663,6 +612,18 @@ Resources:
             Ref: Regions
           S3_BUCKET:
             Ref: S3Bucket            
+          TEAMS_URL:
+            Ref: MicrosoftTeamsWebhookURL
+          SLACK_URL:
+            Ref: SlackWebhookURL
+          CHIME_URL:
+            Ref: AmazonChimeWebhookURL
+          EVENT_BUS_NAME:
+            Ref: EventBusName 
+          SNS_TOPIC_ARN:
+            Fn::Sub: 'arn:aws:sns:${AWS::Region}:${AWS::AccountId}:${SNSTopicName}'
+          SNS_SUBJECT:
+            Ref: SNSSubject
           FROM_EMAIL:
             Ref: FromEmail
           TO_EMAIL:
