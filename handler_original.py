@@ -785,7 +785,7 @@ def describe_events(health_client):
                 else:
                     # write to dynamoDB for persistence
                     update_ddb(event_arn, str_update, status_code, event_details, affected_accounts, affected_entities)
-                    send_notifications(status_code, event_details, affected_accounts, affected_entities)
+                    #send_notifications(status_code, event_details, affected_accounts, affected_entities)
         else:
             print("No events found in time frame, checking again in 1 minute.")
 
@@ -866,7 +866,7 @@ def describe_org_events(health_client):
                     if update_org_ddb_flag:
                         update_org_ddb(event_arn, str_update, status_code, event_details, affected_org_accounts,
                                     affected_org_entities)
-                        send_org_notifications(status_code, event_details, affected_org_accounts, affected_org_entities)
+                        #send_org_notifications(status_code, event_details, affected_org_accounts, affected_org_entities)
         else:
             print("No events found in time frame, checking again in 1 minute.")
 
