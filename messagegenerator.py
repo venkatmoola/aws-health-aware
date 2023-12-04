@@ -606,7 +606,7 @@ def get_message_for_sns(event_details, event_type, affected_accounts, affected_e
         MESSAGE_BODY = f"""
 Hi,
 
-Greetings from AWS Health - Incidents, Issues and Event Notifications,
+AWS Organization Health - Incidents, Issues and Event Notifications,
             
 There is an AWS incident that is in effect which may likely impact your resources. Here are the details:
 
@@ -631,7 +631,7 @@ Cloud Engineering
         MESSAGE_BODY = f"""
 Hi,
 
-Greetings from AWS Health - Incidents, Issues and Event Notifications,
+AWS Organization Health - Incidents, Issues and Event Notifications,
                 
 Good news! The AWS Health incident from earlier has now been marked as resolved.
     
@@ -671,7 +671,7 @@ def get_org_message_for_sns(event_details, event_type, affected_org_accounts, af
         MESSAGE_BODY = f"""
 Hi,
 
-Greetings from AWS Health - Incidents, Issues and Event Notifications,
+AWS Organization Health - Incidents, Issues and Event Notifications,
         
 There is an AWS incident that is in effect which may likely impact your resources. Here are the details:
 
@@ -696,7 +696,7 @@ Cloud Engineering
         MESSAGE_BODY = f"""
 Hi,
 
-Greetings from AWS Health - Incidents, Issues and Event Notifications,
+AWS Organization Health - Incidents, Issues and Event Notifications,
         
 Good news! The AWS Health incident from earlier has now been marked as resolved.
 
